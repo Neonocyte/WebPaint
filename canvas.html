@@ -1,0 +1,218 @@
+<html>
+<head>
+<script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>
+
+<meta charset="UTF-8">
+<style>
+body {
+	background-color: rgb(160,160,160);
+	margin: auto;
+	}
+canvas {
+	background-color: rgb(255, 255, 255);
+	max-width: 100%;
+	max-height: 100%;
+}
+
+#create {
+	text-align: center;
+}
+
+#workspace {
+	text-align: center;
+}
+
+#tools {
+}
+</style>
+</head>
+
+<body onresize="setScale()" onload="init()">
+<div id="create">
+	<p>Width:</p>
+	<input type="number" id="inputWidth" step="100"> <br>
+	<p>Height</p>
+	<input type="number" id="inputHeight" step="100"> <br>
+	<input type="button" value="Create" onclick="setSize()">
+</div>
+
+<div id="workspace" style="display: none;">
+<div id="canvasRegion" onresize="setSize()">
+</div>
+<div id="tools">
+<a href="" id="save"><input type="button" value="Save"></a><br>
+<p>Pressure Opacity <input id="presOpac" type="checkbox" onchange="applyPOpacity()"> Pressure Size <input id="presSize" type="checkbox" onchange="applyPSize()" checked></p>
+<div id="sMinBlock">
+<p>Minimum Brush Size:<input id="minBrush" type="range" value="30" min="1" max="100" data-show-value="true" onchange="updateMin()"></p>
+</div>
+<p>Maximum Brush Size:<input id="maxBrush" type="range" value="30" min="1" max="100" data-show-value="true" onchange="updateMax()"></p>
+<div id="oMinBlock">
+<p>Minimum Opacity:<input id="minOpacity" type="range" value="100" min="0" max="100" data-show-value="true" onchange="updateMinO()"></p>
+</div>
+<p>Maximum Opacity:<input id="maxOpacity" type="range" value="30" min="0" max="100" data-show-value="true" onchange="updateMaxO()"></p>
+<p>Color: <input type="color" id="color" value="#000000" onchange="setColor()"></p>
+</div>
+</div>
+
+<script>
+
+var painting = false;
+var curX = 0, curY = 0, lastX = 0, lastY = 0, xScale = 1.0, yScale = 1.0;
+var drawArea, context, offset, canvasWidth, canvasHeight, creator;
+var color, minBrush, maxBrush, minBrushO, maxBrushO, pSize = document.getElementById("presSize").checked, pOpacity = document.getElementById("presOpac").checked;
+
+	function init(){
+	//run toggles to account for cache
+		if (!pSize) {
+			document.getElementById("sMinBlock").style.display = "none";
+		}
+		
+		if (!pOpacity) {
+			document.getElementById("oMinBlock").style.display = "none";
+		}
+		
+		
+	}
+
+	function startPaint(event){
+		painting = true;
+		context.beginPath()
+	}
+
+	function stopPaint(){
+		painting = false;
+		context.stroke();
+		context.closePath();
+	}
+
+	function paint(event){
+		curX = event.clientX / xScale - offset.left, curY = event.clientY / yScale - offset.top;
+		if (painting){ 
+			if (pSize){
+				pressure = parseFloat(event.pressure);
+			} else {
+				pressure = 1;
+			}
+			if (pOpacity){
+				oPressure = parseFloat(event.pressure);
+			} else {
+				oPressure = 1;
+			}
+			context.moveTo(lastX, lastY);
+			context.lineTo(curX, curY);
+			context.lineCap = "round";
+			context.lineWidth = parseInt(parseFloat(maxBrush - minBrush) * pressure) + minBrush;
+			context.strokeStyle = color// + convertAlphaHex(oPressure);
+			context.globalAlpha = parseFloat(maxBrushO - minBrushO) / 100 * oPressure + parseFloat(minBrushO / 100);
+			
+		}
+		lastX = curX, lastY = curY;
+	}
+	
+	function setScale(){
+		xScale = (creator.offsetWidth + drawArea.offsetWidth) / canvasWidth;
+		yScale = (creator.offsetHeight + drawArea.offsetHeight) / canvasHeight;
+	}
+	
+	function setSize(){
+		var width = document.getElementById("inputWidth").value;
+		var height = document.getElementById("inputHeight").value;
+		var workspace = document.getElementById("workspace");
+		var canvasRegion = document.getElementById("canvasRegion");
+		creator = document.getElementById("create");
+		creator.style.display = 'none';
+		workspace.style.display = 'block';
+		canvasRegion.innerHTML = "<canvas id=\"draw\" width=\"" + width + "\"height=\""+ height + "\" download=\"image.png\"></canvas>";
+		drawArea = document.getElementById("draw"), context = drawArea.getContext("2d"), offset = drawArea.getBoundingClientRect(), canvasWidth = width, canvasHeight = height;
+		drawArea.addEventListener("pointerdown", startPaint, false);
+		drawArea.addEventListener("pointerup", stopPaint, false);
+		drawArea.addEventListener("pointermove", paint, false);
+		setScale();
+		setColor();
+		minBrush = parseInt(document.getElementById("minBrush").value);
+		maxBrush = parseInt(document.getElementById("maxBrush").value);
+		updateMin();
+		updateMax();
+		updateMinO();
+		updateMaxO();
+		
+		document.getElementById("save").addEventListener("click", function(){save(this, "draw", "savedImage")});
+		
+	}
+	
+	function save(link, canvasID, filename){
+		link.href = document.getElementById(canvasID).toDataURL();
+		link.download = filename;
+		//document.getElementById("save").href = drawArea.toDataURL();
+		//window.location.href = image;
+	}
+	
+	function updateDown(){
+		drawArea.download = document.getElementById("name").value + ".png";
+	}
+	
+	function setColor(){
+		color = document.getElementById("color").value;
+	}
+	
+	function updateMin(){
+		minBrush = parseInt(document.getElementById("minBrush").value);
+		if(minBrush > maxBrush){
+			maxBrush = minBrush;
+			document.getElementById("maxBrush").value = maxBrush;
+		}
+	}
+	
+	function updateMax(){
+		maxBrush = parseInt(document.getElementById("maxBrush").value);
+		if(maxBrush < minBrush){
+			minBrush = maxBrush;
+			document.getElementById("minBrush").value = minBrush;
+		}
+	
+	}
+	
+	function updateMinO(){
+		minBrushO = parseInt(document.getElementById("minOpacity").value);
+		if(minBrushO > maxBrushO){
+			maxBrushO = minBrushO;
+			document.getElementById("maxOpacity").value = maxBrushO;
+		}
+	}
+	
+	function updateMaxO(){
+		maxBrushO = parseInt(document.getElementById("maxOpacity").value);
+		if(maxBrushO < minBrushO){
+			minBrushO = maxBrushO;
+			document.getElementById("minOpacity").value = minBrushO;
+		}
+	
+	}
+	
+	function applyPSize(){
+		pSize = !pSize;
+		if (pSize) {
+			document.getElementById("sMinBlock").style.display = "block";
+		} else {
+			document.getElementById("sMinBlock").style.display = "none";
+		}
+	}
+	
+	function applyPOpacity(){
+		pOpacity = !pOpacity;
+		if (pOpacity) {
+			document.getElementById("oMinBlock").style.display = "block";
+		} else {
+			document.getElementById("oMinBlock").style.display = "none";
+		}
+	}
+	
+	function convertAlphaHex(pressure){
+		return (parseInt(parseFloat(maxBrushO - minBrushO) * pressure) + minBrush).toString(16);
+	}
+	
+</script>
+
+</body>
+
+</html>
